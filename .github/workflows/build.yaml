@@ -4,14 +4,41 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    tags:
+      - "*"
 
 env:
-  OPENSSL_VERSION: 3.0.7
+  DEFAULT_OPENSSL_VERSION: 3.0.7
   NASM_VERSION: 2.16.01
 
 jobs:
+  select-openssl-version:
+    name: "Select OpenSSL version to build from source"
+    runs-on: ubuntu-latest
+    outputs:
+      openssl-version: ${{ steps.select-version.outputs.openssl-version }}
+    steps:
+      - id: select-version
+        name: "Select OpenSSL version"
+        shell: bash
+        run: |
+          if [ ${{ github.ref_type }} == "tag" ]; then
+            echo "openssl-version=${{ github.ref_name }}" >>$GITHUB_OUTPUT
+          else
+            echo "openssl-version=${DEFAULT_OPENSSL_VERSION}" >>$GITHUB_OUTPUT
+          fi
+      - name: "Print selected OpenSSL version"
+        shell: bash
+        run: |
+          echo "OPENSSL_VERSION: ${{ steps.select-version.outputs.openssl-version }}"
+
   download-openssl-source-distribution:
     name: "Download and cache OpenSSL source distribution"
+    needs:
+      - select-openssl-version
+    env:
+      OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
     runs-on: ubuntu-latest
     steps:
       - name: "Download"
@@ -43,8 +70,11 @@ jobs:
   build-windows-2019-vs-2019-x64:
     name: "Build 64-bit OpenSSL binairies on Windows 2019, with Visual Studio 2019"
     needs:
+      - select-openssl-version
       - download-openssl-source-distribution
       - download-nasm-binary
+    env:
+      OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v3
@@ -100,8 +130,11 @@ jobs:
   test-cmake-windows-2019-vs-2019-x64:
     name: "Verify binaries can be consumed by CMake (64-bit)"
     needs:
+      - select-openssl-version
       - build-windows-2019-vs-2019-x64
     runs-on: windows-2019
+    env:
+      OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
     steps:
       - uses: actions/checkout@v3
       - name: "Retrieve cached OpenSSL binaries (64-bit)"
@@ -134,8 +167,11 @@ jobs:
   build-windows-2019-vs-2019-x86:
     name: "Build 32-bit OpenSSL binairies on Windows 2019, with Visual Studio 2019"
     needs:
+      - select-openssl-version
       - download-openssl-source-distribution
       - download-nasm-binary
+    env:
+      OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v3
@@ -191,8 +227,11 @@ jobs:
   test-cmake-windows-2019-vs-2019-x86:
     name: "Verify binaries can be consumed by CMake (32-bit)"
     needs:
+      - select-openssl-version
       - build-windows-2019-vs-2019-x86
     runs-on: windows-2019
+    env:
+      OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
     steps:
       - uses: actions/checkout@v3
       - name: "Retrieve cached OpenSSL binaries (32-bit)"
@@ -221,3 +260,29 @@ jobs:
           cd build\
           set PATH=%PATH%;%ProgramFiles(x86)%\OpenSSL\bin
           ctest --build-config Release
+
+  release:
+    if: github.ref_type == 'tag'
+    name: "Release OpenSSL binairies"
+    needs:
+      - build-windows-2019-vs-2019-x64
+      - build-windows-2019-vs-2019-x86
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Retrieve cached OpenSSL binaries (64-bit)"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-binary-distribution-x64
+      - name: "Retrieve cached OpenSSL binaries (32-bit)"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-binary-distribution-x86
+      - name: "Create GitHub release and upload binaries"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mv openssl-binaries-x64.zip openssl-${{ github.ref_name }}-binaries-x64.zip
+          mv openssl-binaries-x86.zip openssl-${{ github.ref_name }}-binaries-x86.zip
+          gh release create --verify-tag ${{ github.ref_name }} \
+            openssl-${{ github.ref_name }}-binaries-x64.zip \
+            openssl-${{ github.ref_name }}-binaries-x86.zip
