@@ -1,0 +1,155 @@
+name: build
+
+on:
+  pull_request:
+    branches:
+      - main
+
+env:
+  OPENSSL_VERSION: 3.0.7
+  NASM_VERSION: 2.16.01
+
+jobs:
+  download-openssl-source-distribution:
+    name: "Download and cache OpenSSL source distribution"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download"
+        run: |
+          wget https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
+          mv openssl-${OPENSSL_VERSION}.tar.gz openssl.tar.gz
+      - name: "Cache"
+        uses: actions/upload-artifact@v3
+        with:
+          name: openssl-source-distribution
+          path: "openssl.tar.gz"
+
+  download-nasm-binary:
+    name: "Download and cache NASM binary"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Download"
+        run: |
+          wget https://www.nasm.us/pub/nasm/releasebuilds/${NASM_VERSION}/win64/nasm-${NASM_VERSION}-win64.zip
+          mv nasm-${NASM_VERSION}-win64.zip nasm.zip
+          unzip nasm.zip
+          mv nasm-${NASM_VERSION}/nasm.exe nasm.exe
+      - name: "Cache"
+        uses: actions/upload-artifact@v3
+        with:
+          name: nasm-binary
+          path: "nasm.exe"
+
+  build-windows-2019-vs-2019-x64:
+    name: "Build 64-bit OpenSSL binairies on Windows 2019, with Visual Studio 2019"
+    needs:
+      - download-openssl-source-distribution
+      - download-nasm-binary
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Retrieve cached NASM binary"
+        uses: actions/download-artifact@v3
+        with:
+          name: nasm-binary
+      - name: "Retrieve cached OpenSSL source"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-source-distribution
+      - name: "Extract OpenSSL source"
+        shell: cmd
+        run: |
+          7z x openssl.tar.gz
+          7z x openssl.tar
+          mv openssl-%OPENSSL_VERSION% src
+      - name: "Configure OpenSSL (64-bit)"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cd src
+          move ..\nasm.exe .
+          perl Configure VC-WIN64A
+      - name: "Build OpenSSL (64-bit)"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cd src
+          nmake
+      #- name: "Test OpenSSL (64-bit)"
+      #  shell: cmd
+      #  run: |
+      #    call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+      #    cd src
+      #    nmake test
+      - name: "Install OpenSSL (64-bit)"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cd src
+          nmake install
+      - name: "Bundle OpenSSL (64-bit)"
+        shell: cmd
+        run: |
+          7z a -tzip openssl-binaries-x64.zip "%ProgramW6432%\OpenSSL" "%CommonProgramW6432%\SSL"
+      - name: "Cache OpenSSL binaries (64-bit)"
+        uses: actions/upload-artifact@v3
+        with:
+          name: openssl-binary-distribution-x64
+          path: "openssl-binaries-x64.zip"
+
+  build-windows-2019-vs-2019-x86:
+    name: "Build 32-bit OpenSSL binairies on Windows 2019, with Visual Studio 2019"
+    needs:
+      - download-openssl-source-distribution
+      - download-nasm-binary
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Retrieve cached NASM binary"
+        uses: actions/download-artifact@v3
+        with:
+          name: nasm-binary
+      - name: "Retrieve cached OpenSSL source"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-source-distribution
+      - name: "Extract OpenSSL source"
+        shell: cmd
+        run: |
+          7z x openssl.tar.gz
+          7z x openssl.tar
+          mv openssl-%OPENSSL_VERSION% src
+      - name: "Configure OpenSSL (32-bit)"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          cd src
+          move ..\nasm.exe .
+          perl Configure VC-WIN32
+      - name: "Build OpenSSL (32-bit)"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          cd src
+          nmake
+      #- name: "Test OpenSSL (32-bit)"
+      #  shell: cmd
+      #  run: |
+      #    call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+      #    cd src
+      #    nmake test
+      - name: "Install OpenSSL (32-bit)"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          cd src
+          nmake install
+      - name: "Bundle OpenSSL (32-bit)"
+        shell: cmd
+        run: |
+          7z a -tzip openssl-binaries-x86.zip "%ProgramFiles(x86)%\OpenSSL" "%CommonProgramFiles(x86)%\SSL"
+      - name: "Cache OpenSSL binaries (32-bit)"
+        uses: actions/upload-artifact@v3
+        with:
+          name: openssl-binary-distribution-x86
+          path: "openssl-binaries-x86.zip"
