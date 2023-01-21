@@ -97,6 +97,39 @@ jobs:
           name: openssl-binary-distribution-x64
           path: "openssl-binaries-x64.zip"
 
+  test-cmake-windows-2019-vs-2019-x64:
+    name: "Verify binaries can be consumed by CMake"
+    needs:
+      - build-windows-2019-vs-2019-x64
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Retrieve cached OpenSSL binaries (64-bit)"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-binary-distribution-x64
+      - name: "Extract and install OpenSSL binaries"
+        shell: cmd
+        run: |
+          7z e openssl-binaries-x64.zip -o"%ProgramW6432%\" OpenSSL\ -y
+          7z e openssl-binaries-x64.zip -o"%CommonProgramW6432%\" SSL\ -y
+      - name: "Generate Visual Studio 2019 Solution"
+        shell: cmd
+        run: |
+          cd build\
+          cmake -G "Visual Studio 16 2019" -A x64 ..\test\
+      - name: "Build Visual Studio 2019 Solution"
+        shell: cmd
+        run: |
+          cd build\
+          cmake --build . --target ALL_BUILD --config Release
+      - name: "Execute simple integration test"
+        shell: cmd
+        run: |
+          cd build\
+          set PATH=%PATH%;%ProgramW6432%\OpenSSL\bin
+          ctest --build-config Release
+
   build-windows-2019-vs-2019-x86:
     name: "Build 32-bit OpenSSL binairies on Windows 2019, with Visual Studio 2019"
     needs:
