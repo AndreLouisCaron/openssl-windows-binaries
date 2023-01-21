@@ -116,6 +116,7 @@ jobs:
       - name: "Generate Visual Studio 2019 Solution"
         shell: cmd
         run: |
+          mkdir build
           cd build\
           cmake -G "Visual Studio 16 2019" -A x64 ..\test\
       - name: "Build Visual Studio 2019 Solution"
