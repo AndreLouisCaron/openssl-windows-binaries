@@ -111,8 +111,8 @@ jobs:
       - name: "Extract and install OpenSSL binaries"
         shell: cmd
         run: |
-          7z e openssl-binaries-x64.zip -o"%ProgramW6432%\" OpenSSL\ -y
-          7z e openssl-binaries-x64.zip -o"%CommonProgramW6432%\" SSL\ -y
+          7z x openssl-binaries-x64.zip -o"%ProgramW6432%\" OpenSSL\ -y
+          7z x openssl-binaries-x64.zip -o"%CommonProgramW6432%\" SSL\ -y
       - name: "Generate Visual Studio 2019 Solution"
         shell: cmd
         run: |
