@@ -97,6 +97,40 @@ jobs:
           name: openssl-binary-distribution-x64
           path: "openssl-binaries-x64.zip"
 
+  test-cmake-windows-2019-vs-2019-x64:
+    name: "Verify binaries can be consumed by CMake (64-bit)"
+    needs:
+      - build-windows-2019-vs-2019-x64
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Retrieve cached OpenSSL binaries (64-bit)"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-binary-distribution-x64
+      - name: "Extract and install OpenSSL binaries (64-bit)"
+        shell: cmd
+        run: |
+          7z x openssl-binaries-x64.zip -o"%ProgramW6432%\" OpenSSL\ -y
+          7z x openssl-binaries-x64.zip -o"%CommonProgramW6432%\" SSL\ -y
+      - name: "Generate Visual Studio 2019 Solution (64-bit)"
+        shell: cmd
+        run: |
+          mkdir build
+          cd build\
+          cmake -G "Visual Studio 16 2019" -A x64 -DEXPECTED_OPENSSL_VERSION=%OPENSSL_VERSION% ..\test\
+      - name: "Build Visual Studio 2019 Solution (64-bit)"
+        shell: cmd
+        run: |
+          cd build\
+          cmake --build . --target ALL_BUILD --config Release
+      - name: "Execute simple integration test (64-bit)"
+        shell: cmd
+        run: |
+          cd build\
+          set PATH=%PATH%;%ProgramW6432%\OpenSSL\bin
+          ctest --build-config Release
+
   build-windows-2019-vs-2019-x86:
     name: "Build 32-bit OpenSSL binairies on Windows 2019, with Visual Studio 2019"
     needs:
@@ -153,3 +187,37 @@ jobs:
         with:
           name: openssl-binary-distribution-x86
           path: "openssl-binaries-x86.zip"
+
+  test-cmake-windows-2019-vs-2019-x86:
+    name: "Verify binaries can be consumed by CMake (32-bit)"
+    needs:
+      - build-windows-2019-vs-2019-x86
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Retrieve cached OpenSSL binaries (32-bit)"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-binary-distribution-x86
+      - name: "Extract and install OpenSSL binaries (32-bit)"
+        shell: cmd
+        run: |
+          7z x openssl-binaries-x86.zip -o"%ProgramFiles(x86)%\" OpenSSL\ -y
+          7z x openssl-binaries-x86.zip -o"%CommonProgramFiles(x86)%\" SSL\ -y
+      - name: "Generate Visual Studio 2019 Solution (32-bit)"
+        shell: cmd
+        run: |
+          mkdir build
+          cd build\
+          cmake -G "Visual Studio 16 2019" -A Win32 -DEXPECTED_OPENSSL_VERSION=%OPENSSL_VERSION% ..\test\
+      - name: "Build Visual Studio 2019 Solution (32-bit)"
+        shell: cmd
+        run: |
+          cd build\
+          cmake --build . --target ALL_BUILD --config Release
+      - name: "Execute simple integration test (32-bit)"
+        shell: cmd
+        run: |
+          cd build\
+          set PATH=%PATH%;%ProgramFiles(x86)%\OpenSSL\bin
+          ctest --build-config Release
