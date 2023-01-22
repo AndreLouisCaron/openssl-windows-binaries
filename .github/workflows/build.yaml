@@ -265,10 +265,13 @@ jobs:
     if: github.ref_type == 'tag'
     name: "Release OpenSSL binairies"
     needs:
-      - build-windows-2019-vs-2019-x64
-      - build-windows-2019-vs-2019-x86
+      - test-cmake-windows-2019-vs-2019-x64
+      - test-cmake-windows-2019-vs-2019-x86
     runs-on: ubuntu-latest
     steps:
+      # NOTE: even though we don't need any files, we can't run
+      #   `gh release create` unless we clone the Git repository.
+      - uses: actions/checkout@v3
       - name: "Retrieve cached OpenSSL binaries (64-bit)"
         uses: actions/download-artifact@v3
         with:
