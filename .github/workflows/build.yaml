@@ -167,7 +167,7 @@ jobs:
         run: |
           cd build\
           set PATH=%PATH%;%ProgramW6432%\OpenSSL\bin
-          ctest --build-config Release
+          ctest --build-config Release --output-on-failure
 
   build-windows-2019-vs-2019-x86:
     name: "Build 32-bit OpenSSL binairies on Windows 2019, with Visual Studio 2019"
@@ -269,7 +269,7 @@ jobs:
         run: |
           cd build\
           set PATH=%PATH%;%ProgramFiles(x86)%\OpenSSL\bin
-          ctest --build-config Release
+          ctest --build-config Release --output-on-failure
 
   release:
     if: github.ref_type == 'tag'
