@@ -166,9 +166,21 @@ jobs:
           cmake --build . --target ALL_BUILD --config Release
       - name: "Execute simple integration test (64-bit)"
         shell: cmd
+        # NOTE: the OpenSSL DLL must be in PATH (or copied into the
+        #   same folder as our test executable).  Normally, we'd
+        #   append the path to the OpenSSL binaries to PATH, but if
+        #   anything else in PATH has a DLL with the same name, the
+        #   other one will be found first and we might not get the
+        #   version we just built when running our tests.
+        #
+        #   To work around this issue, insert the binaries at the
+        #   front of PATH when running these tests.  This is safe in a
+        #   throwaway VM (or in a script that temporarily edits PATH
+        #   in a dedicated terminal), but don't do this on anybody's
+        #   machine.
         run: |
           cd build\
-          set PATH=%PATH%;%ProgramW6432%\OpenSSL\bin
+          set PATH=%ProgramW6432%\OpenSSL\bin;%PATH%
           ctest --build-config Release --output-on-failure
 
   build-windows-2019-vs-2019-x86:
@@ -270,9 +282,21 @@ jobs:
           cmake --build . --target ALL_BUILD --config Release
       - name: "Execute simple integration test (32-bit)"
         shell: cmd
+        # NOTE: the OpenSSL DLL must be in PATH (or copied into the
+        #   same folder as our test executable).  Normally, we'd
+        #   append the path to the OpenSSL binaries to PATH, but if
+        #   anything else in PATH has a DLL with the same name, the
+        #   other one will be found first and we might not get the
+        #   version we just built when running our tests.
+        #
+        #   To work around this issue, insert the binaries at the
+        #   front of PATH when running these tests.  This is safe in a
+        #   throwaway VM (or in a script that temporarily edits PATH
+        #   in a dedicated terminal), but don't do this on anybody's
+        #   machine.
         run: |
           cd build\
-          set PATH=%PATH%;%ProgramFiles(x86)%\OpenSSL\bin
+          set PATH=%ProgramFiles(x86)%\OpenSSL\bin;%PATH%
           ctest --build-config Release --output-on-failure
 
   release:
