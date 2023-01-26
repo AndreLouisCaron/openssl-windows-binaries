@@ -180,7 +180,6 @@ jobs:
         #   machine.
         run: |
           cd build\
-          set PATH=%ProgramW6432%\OpenSSL\bin;%PATH%
           ctest --build-config Release --output-on-failure
 
   build-windows-2019-vs-2019-x86:
@@ -296,7 +295,6 @@ jobs:
         #   machine.
         run: |
           cd build\
-          set PATH=%ProgramFiles(x86)%\OpenSSL\bin;%PATH%
           ctest --build-config Release --output-on-failure
 
   release:
