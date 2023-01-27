@@ -105,12 +105,12 @@ jobs:
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           cd src
           nmake
-      #- name: "Test OpenSSL (64-bit)"
-      #  shell: cmd
-      #  run: |
-      #    call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-      #    cd src
-      #    nmake test
+      - name: "Test OpenSSL (64-bit)"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cd src
+          nmake test
       - name: "Install OpenSSL (64-bit)"
         shell: cmd
         # NOTE: the GitHub action runners' Windows VM seems to include
@@ -220,12 +220,12 @@ jobs:
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
           cd src
           nmake
-      #- name: "Test OpenSSL (32-bit)"
-      #  shell: cmd
-      #  run: |
-      #    call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
-      #    cd src
-      #    nmake test
+      - name: "Test OpenSSL (32-bit)"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          cd src
+          nmake test
       - name: "Install OpenSSL (32-bit)"
         shell: cmd
         # NOTE: the GitHub action runners' Windows VM seems to include
