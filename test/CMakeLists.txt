@@ -2,6 +2,18 @@ cmake_minimum_required(VERSION 3.22)
 
 project(TestOpenSSL CXX)
 
+# The default OpenSSL build creates a DLL file, so linking with
+# `libcrypto*.lib` and `libssl*.lib` still requires you to ship
+# `libcrypto.dll` and `libssl*.dll` alongside your executable.  However,
+# OpenSSL also allows building a fully static library instead.
+#
+# On Linux systems, I'd recommend the shared library option because
+# it allows you to ship security fixes to all OpenSSL-based applications
+# that are installed without recompiling any of them.  On Windows,
+# this central `libssl.dll` doesn't exist and this workflow is mostly
+# broken anyways, so might as well avoid the hassle of bundling the DLL.
+option(OPENSSL_DLL "Link with OpenSSL dynamically" ON)
+
 # When searching for 32-bit OpenSSL on a Windows machine that has
 # Strawberry Perl (as recommended by the OpenSSL documentation and as
 # installed on GitHub runners), the built-in `FindOpenSSL` module will
@@ -27,7 +39,7 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 # installing our binaries anywhere but in the same directory as our
 # executable (see Dynamic-Link Library Search Order in Windows
 # documentation).
-if (WIN32)
+if(WIN32 AND OPENSSL_DLL)
 
   # We'll need the path to the directory containing the OpenSSL DLLs.
   #
@@ -56,12 +68,26 @@ endif()
 # Create the C++ executable that will embed Python.
 add_executable(TestOpenSSL main.cpp)
 
-# Link against CPython.
+# Link against OpenSSL.
 target_link_libraries(
   TestOpenSSL
   ${OPENSSL_LIBRARIES}
 )
-if (WIN32)
+
+# When linking against static OpenSSL, you also need to link with
+# some Win32 DLLs which expose symbols used by OpenSSL.
+if(WIN32 AND (NOT OPENSSL_DLL))
+  target_link_libraries(
+    TestOpenSSL
+    crypt32
+    Ws2_32
+  )
+endif()
+
+# When linking against dynamc OpenSSL, you also need to bundle the
+# OpenSSL dynamic/shared libraries alongside your executable or it
+# will crash on boot due to the missing DLLs.
+if(WIN32 AND OPENSSL_DLL)
   add_custom_command(
     TARGET TestOpenSSL POST_BUILD
     COMMAND

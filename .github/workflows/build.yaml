@@ -14,13 +14,13 @@ env:
 
 jobs:
   select-openssl-version:
-    name: "Select OpenSSL version to build from source"
+    name: "Select version"
     runs-on: ubuntu-latest
     outputs:
       openssl-version: ${{ steps.select-version.outputs.openssl-version }}
     steps:
       - id: select-version
-        name: "Select OpenSSL version"
+        name: "Select"
         shell: bash
         run: |
           if [ ${{ github.ref_type }} == "tag" ]; then
@@ -28,13 +28,13 @@ jobs:
           else
             echo "openssl-version=${DEFAULT_OPENSSL_VERSION}" >>$GITHUB_OUTPUT
           fi
-      - name: "Print selected OpenSSL version"
+      - name: "Display"
         shell: bash
         run: |
           echo "OPENSSL_VERSION: ${{ steps.select-version.outputs.openssl-version }}"
 
   download-openssl-source-distribution:
-    name: "Download and cache OpenSSL source distribution"
+    name: "Download source"
     needs:
       - select-openssl-version
     env:
@@ -52,7 +52,7 @@ jobs:
           path: "openssl.tar.gz"
 
   download-nasm-binary:
-    name: "Download and cache NASM binary"
+    name: "Download NASM"
     runs-on: ubuntu-latest
     steps:
       - name: "Download"
@@ -67,8 +67,8 @@ jobs:
           name: nasm-binary
           path: "nasm.exe"
 
-  build-windows-2019-vs-2019-x64:
-    name: "Build 64-bit OpenSSL binairies on Windows 2019, with Visual Studio 2019"
+  build-windows-2019-vs-2019-x64-dll:
+    name: "Build 64-bit DLL (VS 2019 on Windows 2019)"
     needs:
       - select-openssl-version
       - download-openssl-source-distribution
@@ -78,40 +78,40 @@ jobs:
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v3
-      - name: "Retrieve cached NASM binary"
+      - name: "Retrieve NASM"
         uses: actions/download-artifact@v3
         with:
           name: nasm-binary
-      - name: "Retrieve cached OpenSSL source"
+      - name: "Retrieve source"
         uses: actions/download-artifact@v3
         with:
           name: openssl-source-distribution
-      - name: "Extract OpenSSL source"
+      - name: "Extract"
         shell: cmd
         run: |
           7z x openssl.tar.gz
           7z x openssl.tar
           mv openssl-%OPENSSL_VERSION% src
-      - name: "Configure OpenSSL (64-bit)"
+      - name: "Configure"
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           cd src
           move ..\nasm.exe .
           perl Configure VC-WIN64A
-      - name: "Build OpenSSL (64-bit)"
+      - name: "Build"
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           cd src
           nmake
-      - name: "Test OpenSSL (64-bit)"
+      - name: "Self-test"
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           cd src
           nmake test
-      - name: "Install OpenSSL (64-bit)"
+      - name: "Install"
         shell: cmd
         # NOTE: the GitHub action runners' Windows VM seems to include
         #  OpenSSL 1.1.x at the same path where we install OpenSSL, so
@@ -122,49 +122,255 @@ jobs:
           rmdir /q /s "%CommonProgramW6432%\SSL"
           cd src
           nmake install
-      - name: "Bundle OpenSSL (64-bit)"
+      - name: "Bundle"
         shell: cmd
         run: |
-          7z a -tzip openssl-binaries-x64.zip "%ProgramW6432%\OpenSSL" "%CommonProgramW6432%\SSL"
-      - name: "Cache OpenSSL binaries (64-bit)"
+          7z a -tzip openssl-binaries-x64-dll.zip "%ProgramW6432%\OpenSSL" "%CommonProgramW6432%\SSL"
+      - name: "Cache binaries"
         uses: actions/upload-artifact@v3
         with:
-          name: openssl-binary-distribution-x64
-          path: "openssl-binaries-x64.zip"
+          name: openssl-binary-distribution-x64-dll
+          path: "openssl-binaries-x64-dll.zip"
 
-  test-cmake-windows-2019-vs-2019-x64:
-    name: "Verify binaries can be consumed by CMake (64-bit)"
+  test-cmake-windows-2019-vs-2019-x64-dll:
+    name: "CMake test 64-bit DLL (VS 2019 on Windows 2019)"
     needs:
       - select-openssl-version
-      - build-windows-2019-vs-2019-x64
+      - build-windows-2019-vs-2019-x64-dll
     runs-on: windows-2019
     env:
       OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
     steps:
       - uses: actions/checkout@v3
-      - name: "Retrieve cached OpenSSL binaries (64-bit)"
+      - name: "Retrieve binaries"
         uses: actions/download-artifact@v3
         with:
-          name: openssl-binary-distribution-x64
-      - name: "Extract and install OpenSSL binaries (64-bit)"
+          name: openssl-binary-distribution-x64-dll
+      - name: "Install"
         shell: cmd
         run: |
           rmdir /q /s "%ProgramW6432%\OpenSSL"
           rmdir /q /s "%CommonProgramW6432%\SSL"
-          7z x openssl-binaries-x64.zip -o"%ProgramW6432%\" OpenSSL\ -y
-          7z x openssl-binaries-x64.zip -o"%CommonProgramW6432%\" SSL\ -y
-      - name: "Generate Visual Studio 2019 Solution (64-bit)"
+          7z x openssl-binaries-x64-dll.zip -o"%ProgramW6432%\" OpenSSL\ -y
+          7z x openssl-binaries-x64-dll.zip -o"%CommonProgramW6432%\" SSL\ -y
+      - name: "Generate VS solution"
         shell: cmd
         run: |
           mkdir build
           cd build\
           cmake -G "Visual Studio 16 2019" -A x64 -DEXPECTED_OPENSSL_VERSION=%OPENSSL_VERSION% ..\test\
-      - name: "Build Visual Studio 2019 Solution (64-bit)"
+      - name: "Build VS solution"
         shell: cmd
         run: |
           cd build\
           cmake --build . --target ALL_BUILD --config Release
-      - name: "Execute simple integration test (64-bit)"
+      - name: "Integration test"
+        shell: cmd
+        run: |
+          cd build\
+          ctest --build-config Release --output-on-failure
+
+  build-windows-2019-vs-2019-x64-static:
+    name: "Build 64-bit LIB (VS 2019 on Windows 2019)"
+    needs:
+      - select-openssl-version
+      - download-openssl-source-distribution
+      - download-nasm-binary
+    env:
+      OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Retrieve NASM"
+        uses: actions/download-artifact@v3
+        with:
+          name: nasm-binary
+      - name: "Retrieve source"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-source-distribution
+      - name: "Extract"
+        shell: cmd
+        run: |
+          7z x openssl.tar.gz
+          7z x openssl.tar
+          mv openssl-%OPENSSL_VERSION% src
+      - name: "Configure"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cd src
+          move ..\nasm.exe .
+          perl Configure VC-WIN64A -static
+      - name: "Build"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cd src
+          nmake
+      - name: "Self-test"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cd src
+          nmake test
+      - name: "Install"
+        shell: cmd
+        # NOTE: the GitHub action runners' Windows VM seems to include
+        #  OpenSSL 1.1.x at the same path where we install OpenSSL, so
+        #  let's delete that first.  Don't do this on your own machine!
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          rmdir /q /s "%ProgramW6432%\OpenSSL"
+          rmdir /q /s "%CommonProgramW6432%\SSL"
+          cd src
+          nmake install
+      - name: "Bundle"
+        shell: cmd
+        run: |
+          7z a -tzip openssl-binaries-x64-static.zip "%ProgramW6432%\OpenSSL" "%CommonProgramW6432%\SSL"
+      - name: "Cache OpenSSL binaries (64-bit)"
+        uses: actions/upload-artifact@v3
+        with:
+          name: openssl-binary-distribution-x64-static
+          path: "openssl-binaries-x64-static.zip"
+
+  test-cmake-windows-2019-vs-2019-x64-static:
+    name: "CMake test 64-bit LIB (VS 2019 on Windows 2019)"
+    needs:
+      - select-openssl-version
+      - build-windows-2019-vs-2019-x64-static
+    runs-on: windows-2019
+    env:
+      OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Retrieve binaries"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-binary-distribution-x64-static
+      - name: "Install"
+        shell: cmd
+        run: |
+          rmdir /q /s "%ProgramW6432%\OpenSSL"
+          rmdir /q /s "%CommonProgramW6432%\SSL"
+          7z x openssl-binaries-x64-static.zip -o"%ProgramW6432%\" OpenSSL\ -y
+          7z x openssl-binaries-x64-static.zip -o"%CommonProgramW6432%\" SSL\ -y
+      - name: "Generate VS solution"
+        shell: cmd
+        run: |
+          mkdir build
+          cd build\
+          cmake -G "Visual Studio 16 2019" -A x64 -DOPENSSL_DLL=OFF -DEXPECTED_OPENSSL_VERSION=%OPENSSL_VERSION% ..\test\
+      - name: "Build VS solution"
+        shell: cmd
+        run: |
+          cd build\
+          cmake --build . --target ALL_BUILD --config Release
+      - name: "Integration test"
+        shell: cmd
+        run: |
+          cd build\
+          ctest --build-config Release --output-on-failure
+
+  build-windows-2019-vs-2019-x86-dll:
+    name: "Build 32-bit DLL (VS 2019 on Windows 2019)"
+    needs:
+      - select-openssl-version
+      - download-openssl-source-distribution
+      - download-nasm-binary
+    env:
+      OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Retrieve NASM"
+        uses: actions/download-artifact@v3
+        with:
+          name: nasm-binary
+      - name: "Retrieve source"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-source-distribution
+      - name: "Extract"
+        shell: cmd
+        run: |
+          7z x openssl.tar.gz
+          7z x openssl.tar
+          mv openssl-%OPENSSL_VERSION% src
+      - name: "Configure"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          cd src
+          move ..\nasm.exe .
+          perl Configure VC-WIN32
+      - name: "Build"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          cd src
+          nmake
+      - name: "Self-test"
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          cd src
+          nmake test
+      - name: "Install"
+        shell: cmd
+        # NOTE: the GitHub action runners' Windows VM seems to include
+        #  OpenSSL 1.1.x at the same path where we install OpenSSL, so
+        #  let's delete that first.  Don't do this on your own machine!
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          cd src
+          rmdir /q /s "%ProgramFiles(x86)%\OpenSSL"
+          rmdir /q /s "%CommonProgramFiles(x86)%\SSL"
+          nmake install
+      - name: "Bundle"
+        shell: cmd
+        run: |
+          7z a -tzip openssl-binaries-x86-dll.zip "%ProgramFiles(x86)%\OpenSSL" "%CommonProgramFiles(x86)%\SSL"
+      - name: "Cache binaries"
+        uses: actions/upload-artifact@v3
+        with:
+          name: openssl-binary-distribution-x86-dll
+          path: "openssl-binaries-x86-dll.zip"
+
+  test-cmake-windows-2019-vs-2019-x86-dll:
+    name: "CMake test 32-bit DLL (VS 2019 on Windows 2019)"
+    needs:
+      - select-openssl-version
+      - build-windows-2019-vs-2019-x86-dll
+    runs-on: windows-2019
+    env:
+      OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Retrieve binaries"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-binary-distribution-x86-dll
+      - name: "Install"
+        shell: cmd
+        run: |
+          rmdir /q /s "%ProgramFiles(x86)%\OpenSSL"
+          rmdir /q /s "%CommonProgramFiles(x86)%\SSL"
+          7z x openssl-binaries-x86-dll.zip -o"%ProgramFiles(x86)%\" OpenSSL\ -y
+          7z x openssl-binaries-x86-dll.zip -o"%CommonProgramFiles(x86)%\" SSL\ -y
+      - name: "Generate VS solution"
+        shell: cmd
+        run: |
+          mkdir build
+          cd build\
+          cmake -G "Visual Studio 16 2019" -A Win32 -DEXPECTED_OPENSSL_VERSION=%OPENSSL_VERSION% ..\test\
+      - name: "Build VS solution"
+        shell: cmd
+        run: |
+          cd build\
+          cmake --build . --target ALL_BUILD --config Release
+      - name: "Integration test"
         shell: cmd
         # NOTE: the OpenSSL DLL must be in PATH (or copied into the
         #   same folder as our test executable).  Normally, we'd
@@ -182,8 +388,8 @@ jobs:
           cd build\
           ctest --build-config Release --output-on-failure
 
-  build-windows-2019-vs-2019-x86:
-    name: "Build 32-bit OpenSSL binairies on Windows 2019, with Visual Studio 2019"
+  build-windows-2019-vs-2019-x86-static:
+    name: "Build 32-bit LIB (VS 2019 on Windows 2019)"
     needs:
       - select-openssl-version
       - download-openssl-source-distribution
@@ -193,40 +399,40 @@ jobs:
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v3
-      - name: "Retrieve cached NASM binary"
+      - name: "Retrieve NASM"
         uses: actions/download-artifact@v3
         with:
           name: nasm-binary
-      - name: "Retrieve cached OpenSSL source"
+      - name: "Retrieve source"
         uses: actions/download-artifact@v3
         with:
           name: openssl-source-distribution
-      - name: "Extract OpenSSL source"
+      - name: "Extract source"
         shell: cmd
         run: |
           7z x openssl.tar.gz
           7z x openssl.tar
           mv openssl-%OPENSSL_VERSION% src
-      - name: "Configure OpenSSL (32-bit)"
+      - name: "Configure"
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
           cd src
           move ..\nasm.exe .
-          perl Configure VC-WIN32
-      - name: "Build OpenSSL (32-bit)"
+          perl Configure VC-WIN32 -static
+      - name: "Build"
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
           cd src
           nmake
-      - name: "Test OpenSSL (32-bit)"
-        shell: cmd
-        run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
-          cd src
-          nmake test
-      - name: "Install OpenSSL (32-bit)"
+      #- name: "Test OpenSSL (32-bit)"
+      #  shell: cmd
+      #  run: |
+      #    call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+      #    cd src
+      #    nmake test
+      - name: "Install"
         shell: cmd
         # NOTE: the GitHub action runners' Windows VM seems to include
         #  OpenSSL 1.1.x at the same path where we install OpenSSL, so
@@ -237,49 +443,49 @@ jobs:
           rmdir /q /s "%ProgramFiles(x86)%\OpenSSL"
           rmdir /q /s "%CommonProgramFiles(x86)%\SSL"
           nmake install
-      - name: "Bundle OpenSSL (32-bit)"
+      - name: "Bundle"
         shell: cmd
         run: |
-          7z a -tzip openssl-binaries-x86.zip "%ProgramFiles(x86)%\OpenSSL" "%CommonProgramFiles(x86)%\SSL"
-      - name: "Cache OpenSSL binaries (32-bit)"
+          7z a -tzip openssl-binaries-x86-static.zip "%ProgramFiles(x86)%\OpenSSL" "%CommonProgramFiles(x86)%\SSL"
+      - name: "Cache binaries"
         uses: actions/upload-artifact@v3
         with:
-          name: openssl-binary-distribution-x86
-          path: "openssl-binaries-x86.zip"
+          name: openssl-binary-distribution-x86-static
+          path: "openssl-binaries-x86-static.zip"
 
-  test-cmake-windows-2019-vs-2019-x86:
-    name: "Verify binaries can be consumed by CMake (32-bit)"
+  test-cmake-windows-2019-vs-2019-x86-static:
+    name: "CMake test 32-bit LIB (VS 2019 on Windows 2019)"
     needs:
       - select-openssl-version
-      - build-windows-2019-vs-2019-x86
+      - build-windows-2019-vs-2019-x86-static
     runs-on: windows-2019
     env:
       OPENSSL_VERSION: ${{ needs.select-openssl-version.outputs.openssl-version }}
     steps:
       - uses: actions/checkout@v3
-      - name: "Retrieve cached OpenSSL binaries (32-bit)"
+      - name: "Retrieve cached binaries"
         uses: actions/download-artifact@v3
         with:
-          name: openssl-binary-distribution-x86
-      - name: "Extract and install OpenSSL binaries (32-bit)"
+          name: openssl-binary-distribution-x86-static
+      - name: "Install"
         shell: cmd
         run: |
           rmdir /q /s "%ProgramFiles(x86)%\OpenSSL"
           rmdir /q /s "%CommonProgramFiles(x86)%\SSL"
-          7z x openssl-binaries-x86.zip -o"%ProgramFiles(x86)%\" OpenSSL\ -y
-          7z x openssl-binaries-x86.zip -o"%CommonProgramFiles(x86)%\" SSL\ -y
-      - name: "Generate Visual Studio 2019 Solution (32-bit)"
+          7z x openssl-binaries-x86-static.zip -o"%ProgramFiles(x86)%\" OpenSSL\ -y
+          7z x openssl-binaries-x86-static.zip -o"%CommonProgramFiles(x86)%\" SSL\ -y
+      - name: "Generate VS solution"
         shell: cmd
         run: |
           mkdir build
           cd build\
-          cmake -G "Visual Studio 16 2019" -A Win32 -DEXPECTED_OPENSSL_VERSION=%OPENSSL_VERSION% ..\test\
-      - name: "Build Visual Studio 2019 Solution (32-bit)"
+          cmake -G "Visual Studio 16 2019" -A Win32 -DOPENSSL_DLL=OFF -DEXPECTED_OPENSSL_VERSION=%OPENSSL_VERSION% ..\test\
+      - name: "Build VS solution"
         shell: cmd
         run: |
           cd build\
           cmake --build . --target ALL_BUILD --config Release
-      - name: "Execute simple integration test (32-bit)"
+      - name: "Integration test"
         shell: cmd
         # NOTE: the OpenSSL DLL must be in PATH (or copied into the
         #   same folder as our test executable).  Normally, we'd
@@ -299,10 +505,12 @@ jobs:
 
   release:
     if: github.ref_type == 'tag'
-    name: "Release OpenSSL binairies"
+    name: "Publish binairies"
     needs:
-      - test-cmake-windows-2019-vs-2019-x64
-      - test-cmake-windows-2019-vs-2019-x86
+      - test-cmake-windows-2019-vs-2019-x64-dll
+      - test-cmake-windows-2019-vs-2019-x64-static
+      - test-cmake-windows-2019-vs-2019-x86-dll
+      - test-cmake-windows-2019-vs-2019-x86-static
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -310,20 +518,33 @@ jobs:
       # NOTE: even though we don't need any files, we can't run
       #   `gh release create` unless we clone the Git repository.
       - uses: actions/checkout@v3
-      - name: "Retrieve cached OpenSSL binaries (64-bit)"
+      - name: "Retrieve binaries (64-bit DLL)"
         uses: actions/download-artifact@v3
         with:
-          name: openssl-binary-distribution-x64
-      - name: "Retrieve cached OpenSSL binaries (32-bit)"
+          name: openssl-binary-distribution-x64-dll
+      - uses: actions/checkout@v3
+      - name: "Retrieve binaries (64-bit LIB)"
         uses: actions/download-artifact@v3
         with:
-          name: openssl-binary-distribution-x86
-      - name: "Create GitHub release and upload binaries"
+          name: openssl-binary-distribution-x64-static
+      - name: "Retrieve binaries (32-bit DLL)"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-binary-distribution-x86-dll
+      - name: "Retrieve binaries (32-bit LIB)"
+        uses: actions/download-artifact@v3
+        with:
+          name: openssl-binary-distribution-x86-static
+      - name: "Publish"
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          mv openssl-binaries-x64.zip openssl-${{ github.ref_name }}-binaries-x64.zip
-          mv openssl-binaries-x86.zip openssl-${{ github.ref_name }}-binaries-x86.zip
-          gh release create --verify-tag ${{ github.ref_name }} \
-            openssl-${{ github.ref_name }}-binaries-x64.zip \
-            openssl-${{ github.ref_name }}-binaries-x86.zip
+          mv openssl-binaries-x64-dll.zip openssl-${{ github.ref_name }}-binaries-x64-dll.zip
+          mv openssl-binaries-x64-dll.zip openssl-${{ github.ref_name }}-binaries-x64-static.zip
+          mv openssl-binaries-x86-dll.zip openssl-${{ github.ref_name }}-binaries-x86-dll.zip
+          mv openssl-binaries-x86-dll.zip openssl-${{ github.ref_name }}-binaries-x86-static.zip
+          gh release create --verify-tag ${{ github.ref_name }} \ \
+            openssl-${{ github.ref_name }}-binaries-x64-dll.zip \
+            openssl-${{ github.ref_name }}-binaries-x64-static.zip \
+            openssl-${{ github.ref_name }}-binaries-x86-dll.zip \
+            openssl-${{ github.ref_name }}-binaries-x86-static.zip
