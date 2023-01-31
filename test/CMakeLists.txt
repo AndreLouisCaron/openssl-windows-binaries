@@ -25,12 +25,21 @@ option(OPENSSL_DLL "Link with OpenSSL dynamically" ON)
 option(EXPECTED_OPENSSL_VERSION "")
 message("Expected OpenSSL version: \"${EXPECTED_OPENSSL_VERSION}\"")
 
-# Find Python.
+# Find OpenSSL.
 find_package(OpenSSL REQUIRED)
 message("OpenSSL version: \"${OPENSSL_VERSION}\"")
 message("OpenSSL include directory: ${OPENSSL_INCLUDE_DIR}")
+
+# When linking against static OpenSSL, you also need to link with
+# some Win32 DLLs which expose symbols used by OpenSSL.
+if(WIN32 AND (NOT OPENSSL_DLL))
+  list(PREPEND
+    OPENSSL_LIBRARIES
+    crypt32
+    ws2_32
+  )
+endif()
 message("OpenSSL libraries: ${OPENSSL_LIBRARIES}")
-include_directories(${OPENSSL_INCLUDE_DIR})
 
 # Dynamic libraries on Windows need to be copied to the output folder.
 # This is required on all platforms and becomes most obvious when
@@ -43,7 +52,6 @@ if(WIN32 AND OPENSSL_DLL)
 
   # We'll need the path to the directory containing the OpenSSL DLLs.
   #
-
   # Compute the path relative to any of the OpenSSL `.lib` files with
   # the assumption that the `lib/` and `bin/ folders are side-by-side,
   # which is what OpenSSL's `nmake install` command does for us.
@@ -68,21 +76,17 @@ endif()
 # Create the C++ executable that will embed Python.
 add_executable(TestOpenSSL main.cpp)
 
+# Allow #include <openssl/*.h>
+target_include_directories(TestOpenSSL
+  PRIVATE
+    ${OPENSSL_INCLUDE_DIR}
+)
+
 # Link against OpenSSL.
 target_link_libraries(
   TestOpenSSL
   ${OPENSSL_LIBRARIES}
 )
-
-# When linking against static OpenSSL, you also need to link with
-# some Win32 DLLs which expose symbols used by OpenSSL.
-if(WIN32 AND (NOT OPENSSL_DLL))
-  target_link_libraries(
-    TestOpenSSL
-    crypt32
-    Ws2_32
-  )
-endif()
 
 # When linking against dynamc OpenSSL, you also need to bundle the
 # OpenSSL dynamic/shared libraries alongside your executable or it
