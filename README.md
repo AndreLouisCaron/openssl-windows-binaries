@@ -77,9 +77,22 @@ if you just built OpenSSL yourself and run `nmake install`.
 This all depends on what build system you use.  The `test/` folder has
 an example that shows how to consume this with [CMake](https://cmake.org/).
 
-On Windows, I highly recommend copying the `.dll` files and installing
-them alongside your application.  On some machines, you can simply add
-the OpenSSL binaries onto `PATH`, but this is unreliable because:
+CMake's built-in `FindOpenSSL` module is very convenient, but it has a
+few shortcomings in my opinion regardless of the DLL or static variant
+that you use.  See the `test/` folder for a fully working example.
+
+### Using the DLL variant
+
+This is the default build for OpenSSL and suits Linux systems very
+well because it allows your Linux distribution to patch OpenSSL bug
+fixes without you having to recompile all your OpenSSL-based
+applications.  However, I find it cumbersome to work with on Windows,
+were we cannot install OpenSSL DLL in a central location for multiple
+applications.
+
+On some machines, you can simply extract the binaries in their default
+location (e.g. where `nmake install` would put them) and then add the
+OpenSSL binaries onto `PATH`, but this is unreliable because:
 
 1. Multiple applications that use the same `.dll` file name can
    conflict with each other.  Your application could be broken by
@@ -89,3 +102,18 @@ the OpenSSL binaries onto `PATH`, but this is unreliable because:
    `C:\Windows\System32` (as is the case on GitHub Windows runners),
    it will be impossible for your application to resolve the OpenSSL
    binaries correctly regardless of how you setup `PATH`.
+
+To avoid these issues, I highly recommend copying the `.dll` files and
+installing them alongside your application.  The CMake example in the
+`test/` folder does this using a post-build step.
+
+### Using the static library variant
+
+Because of the problems descibed above with the DLL variant, it might
+be simpler to just link your application with a self-contained OpenSSL
+static library.
+
+When linking your application, you'll also need to link against a few
+Windows libraries such as `crypt32` and `ws2_32`.  The complete list
+is in the OpenSSL documentation, but you may not need all of them
+depending on which OpenSSL functions you call from your application.

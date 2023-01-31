@@ -229,7 +229,7 @@ jobs:
         shell: cmd
         run: |
           7z a -tzip openssl-binaries-x64-static.zip "%ProgramW6432%\OpenSSL" "%CommonProgramW6432%\SSL"
-      - name: "Cache OpenSSL binaries (64-bit)"
+      - name: "Cache binaries"
         uses: actions/upload-artifact@v3
         with:
           name: openssl-binary-distribution-x64-static
