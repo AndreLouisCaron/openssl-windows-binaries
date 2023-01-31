@@ -522,7 +522,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: openssl-binary-distribution-x64-dll
-      - uses: actions/checkout@v3
       - name: "Retrieve binaries (64-bit LIB)"
         uses: actions/download-artifact@v3
         with:
