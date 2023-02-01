@@ -542,7 +542,7 @@ jobs:
           mv openssl-binaries-x64-static.zip openssl-${{ github.ref_name }}-binaries-x64-static.zip
           mv openssl-binaries-x86-dll.zip openssl-${{ github.ref_name }}-binaries-x86-dll.zip
           mv openssl-binaries-x86-static.zip openssl-${{ github.ref_name }}-binaries-x86-static.zip
-          gh release create --verify-tag ${{ github.ref_name }} \ \
+          gh release create --verify-tag ${{ github.ref_name }} \
             openssl-${{ github.ref_name }}-binaries-x64-dll.zip \
             openssl-${{ github.ref_name }}-binaries-x64-static.zip \
             openssl-${{ github.ref_name }}-binaries-x86-dll.zip \
